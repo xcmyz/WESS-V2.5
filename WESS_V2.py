@@ -223,7 +223,7 @@ class WESS_Encoder(nn.Module):
 
         return bert_transformer_input
 
-    def forward(self, x, bert_embeddings, gate_for_words):
+    def forward(self, x, bert_embeddings, gate_for_words, indexs_list):
         """
         :param: x: (batch, length)
         :param: bert_embeddings: (batch, length, 768)
@@ -255,6 +255,12 @@ class WESS_Encoder(nn.Module):
         # encoder_output = self.bert_encoder(bert_input)
 
         # New
+
+        # If you need data parallel, you will need some extra processing.
+        if self.training:
+            print(indexs_list)
+            bert_embeddings = [bert_embeddings[i] for i in indexs_list]
+
         if not (len(words_batch) == len(bert_embeddings)):
             raise ValueError(
                 "the length of bert embeddings is not equal to the length of GRU embeddings.")
@@ -561,9 +567,12 @@ class WESS(nn.Module):
         self.encoder = WESS_Encoder()
         self.decoder = WESS_Decoder()
 
-    def forward(self, x, bert_embeddings, gate_for_words, mel_target=None):
+    def forward(self, x, bert_embeddings, gate_for_words, indexs_list=None, mel_target=None):
+
+        # If you need data parallel, you will need some extra processing for bert embeddings
+
         encoder_output_word, encoder_output_alpha = self.encoder(
-            x, bert_embeddings, gate_for_words)
+            x, bert_embeddings,  gate_for_words, indexs_list)
 
         # print("encoder output word:", encoder_output_word.size())
         # print("encoder output alpha:", encoder_output_alpha.size())
