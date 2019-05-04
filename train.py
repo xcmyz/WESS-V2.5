@@ -68,6 +68,10 @@ def main(args):
             optimizer.zero_grad()
 
             # Prepare Data
+            indexs_list = torch.Tensor(
+                [i for i in range(hp.batch_size)]).int().to(device)
+            # print(indexs_list)
+
             texts = data_of_batch["text"]
             mels = data_of_batch["mel"]
             embeddings = data_of_batch["embeddings"]
@@ -85,7 +89,7 @@ def main(args):
 
             # Forward
             mel_output, gate_predicted = model(
-                texts, embeddings, sep_lists, mels)
+                texts, embeddings, sep_lists, indexs_list, mels)
 
             # print()
             # print("mel target size:", mels.size())
