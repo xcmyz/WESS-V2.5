@@ -258,7 +258,7 @@ class WESS_Encoder(nn.Module):
 
         # If you need data parallel, you will need some extra processing.
         if self.training:
-            print(indexs_list)
+            # print(indexs_list)
             bert_embeddings = [bert_embeddings[i] for i in indexs_list]
 
         if not (len(words_batch) == len(bert_embeddings)):
@@ -567,7 +567,7 @@ class WESS(nn.Module):
         self.encoder = WESS_Encoder()
         self.decoder = WESS_Decoder()
 
-    def forward(self, x, bert_embeddings, gate_for_words, indexs_list=None, mel_target=None):
+    def forward(self, x, bert_embeddings, gate_for_words, indexs_list=None, mel_target=None, gate_target=None):
 
         # If you need data parallel, you will need some extra processing for bert embeddings
 
@@ -580,7 +580,7 @@ class WESS(nn.Module):
         output = self.decoder(encoder_output_word,
                               encoder_output_alpha, mel_target)
 
-        return output
+        return output, mel_target, gate_target
 
 
 if __name__ == "__main__":
