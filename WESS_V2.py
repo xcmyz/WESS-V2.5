@@ -122,6 +122,8 @@ class WESS_Encoder(nn.Module):
             # one_word = one_word + position_embedding
             # output_one_word = self.P_transformer_block(one_word)
             # print(output_one_word.size())
+
+            # self.pre_GRU.flatten_parameters()
             output_one_word = self.pre_GRU(one_word)[0]
             output_one_word = self.get_GRU_embedding(output_one_word)
             word = output_one_word.squeeze(0)
