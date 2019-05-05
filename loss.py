@@ -34,6 +34,6 @@ class WESSLoss(nn.Module):
         mel_loss = nn.MSELoss()(
             mel_output[:, 0:mel_target.size(1), :], mel_target)
         # gate_loss = nn.BCEWithLogitsLoss()(gate_predicted, gate_target)
-        gate_loss = nn.BCEWithLogitsLoss()(gate_predicted, gate_target) / 10.0
+        gate_loss = nn.BCEWithLogitsLoss()(gate_predicted, gate_target) / 15.0
 
         return mel_loss + gate_loss, mel_loss, gate_loss
