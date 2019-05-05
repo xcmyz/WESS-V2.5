@@ -85,12 +85,13 @@ def main(args):
 
             mels = torch.from_numpy(mels).to(device)
 
-            gate_target = torch.from_numpy(gate_target).float().to(device)
+            gates = torch.from_numpy(gate_target).float().to(device)
 
             # Forward
-            mel_output, gate_predicted = model(
-                texts, embeddings, sep_lists, indexs_list, mels)
-
+            output, mel_target, gate_target = model(
+                texts, embeddings, sep_lists, indexs_list, mels, gates)
+            mel_output, gate_predicted = output
+            
             # print()
             # print("mel target size:", mels.size())
             # print("mel output size:", mel_output.size())
@@ -98,7 +99,7 @@ def main(args):
 
             # Calculate loss
             total_loss, mel_loss, gate_loss = wess_loss(
-                mel_output, gate_predicted, mels, gate_target)
+                mel_output, gate_predicted, mel_target, gate_target)
             # print(gate_loss)
             loss_list.append(total_loss.item())
 
