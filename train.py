@@ -91,7 +91,7 @@ def main(args):
             output, mel_target, gate_target = model(
                 texts, embeddings, sep_lists, indexs_list, mels, gates)
             mel_output, gate_predicted = output
-            
+
             # print()
             # print("mel target size:", mels.size())
             # print("mel output size:", mel_output.size())
@@ -166,6 +166,6 @@ def adjust_learning_rate(optimizer, step):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--restore_step', type=int,
-                        help='checkpoint', default=0)
+                        help='checkpoint', default=300)
     args = parser.parse_args()
     main(args)
