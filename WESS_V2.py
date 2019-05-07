@@ -14,6 +14,8 @@ import hparams as hp
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device("cpu")
 
+if_parallel = False
+
 
 class WESS_Encoder(nn.Module):
     """
@@ -259,7 +261,7 @@ class WESS_Encoder(nn.Module):
         # New
 
         # If you need data parallel, you will need some extra processing.
-        if self.training:
+        if self.training and if_parallel:
             # print(indexs_list)
             bert_embeddings = [bert_embeddings[i] for i in indexs_list]
 
@@ -270,6 +272,8 @@ class WESS_Encoder(nn.Module):
         bert_transformer_input = list()
 
         for batch_index in range(len(words_batch)):
+            # print(bert_embeddings[batch_index])
+            # print(words_batch[batch_index])
             add_bert_GRU = self.pad_bert_embedding_and_GRU_embedding(
                 bert_embeddings[batch_index], words_batch[batch_index])
             bert_transformer_input.append(add_bert_GRU)
@@ -307,9 +311,9 @@ class WESS_Decoder(nn.Module):
                  decoder_prenet_alpha_hidden=384,
                  decoder_prenet_alpha_output=256,
                  decoder_word_attn_heads=4,
-                 decoder_word_feed_forward_hidden=4*768,
+                 decoder_word_feed_forward_hidden=4*256,
                  decoder_alpha_attn_heads=4,
-                 decoder_alpha_feed_forward_hidden=4*768,
+                 decoder_alpha_feed_forward_hidden=4*256,
                  decoder_n_layer_word=1,
                  decoder_n_layer_alpha=1,
                  max_decode_length=1000,
@@ -317,7 +321,7 @@ class WESS_Decoder(nn.Module):
                  decoder_postnet_output=80,
                  #  linear_projection_hidden=128,
                  linear_projection_output=1,
-                 decode_per_step=5,
+                 decode_per_step=3,
                  gate_threshold=0.5,
                  dropout=0.1):
         """
@@ -397,7 +401,7 @@ class WESS_Decoder(nn.Module):
             mel_first_input_word = self.PreNet_word(mel_first_input)
             mel_first_input_alpha = self.PreNet_alpha(mel_first_input)
 
-            pos_input = torch.stack([torch.Tensor([i for i in range(5)]).to(
+            pos_input = torch.stack([torch.Tensor([i for i in range(self.decode_per_step)]).to(
                 device) for _ in range(mel_target.size(0))]).long()
             pos_embedding = self.position_embedding(pos_input)
 
@@ -425,30 +429,36 @@ class WESS_Decoder(nn.Module):
 
             mel_output.append(decoder_first_output)
 
-            for cnt_pos in range(mel_target.size(1) // 5):
+            for cnt_pos in range(mel_target.size(1) // self.decode_per_step):
                 # Position Embedding
                 # position = cnt_pos + 1
                 # pos_input = torch.stack(
                 #     [torch.Tensor([position]).long() for i in range(mel_target.size(0))]).to(device)
                 # pos_emb = self.position_embedding(pos_input)
 
-                pos_input = torch.stack([torch.Tensor([i for i in range(
-                    cnt_pos*5, cnt_pos*5+5)]).to(device) for _ in range(mel_target.size(0))]).long()
+                range_start = cnt_pos * self.decode_per_step
+                range_end = cnt_pos * self.decode_per_step + self.decode_per_step
+                pos_input = torch.stack([torch.Tensor([i for i in range(range_start, range_end)]).to(
+                    device) for _ in range(mel_target.size(0))]).long()
                 pos_embedding = self.position_embedding(pos_input)
 
                 # Default Teacher Forced
 
                 # Word
-                model_input_word = mel_target[:, cnt_pos*5:cnt_pos*5+5, :]
+                model_input_word = mel_target[:, cnt_pos*self.decode_per_step:cnt_pos *
+                                              self.decode_per_step+self.decode_per_step, :]
                 model_input_word = self.PreNet_word(model_input_word)
                 model_input_word = model_input_word + pos_embedding
+
+                # print("model_input_word:", model_input_word.size())
 
                 for decoder_layer in self.decoder_layer_stack_word:
                     model_input_word = decoder_layer(
                         model_input_word, encoder_output_word)
 
                 # Alpha
-                model_input_alpha = mel_target[:, cnt_pos*5:cnt_pos*5+5, :]
+                model_input_alpha = mel_target[:, cnt_pos*self.decode_per_step:cnt_pos *
+                                               self.decode_per_step+self.decode_per_step, :]
                 model_input_alpha = self.PreNet_alpha(model_input_alpha)
                 model_input_alpha = model_input_alpha + pos_embedding
 
@@ -459,9 +469,14 @@ class WESS_Decoder(nn.Module):
                 model_output = model_input_word + model_input_alpha
                 model_output = self.decoder_postnet(model_output)
 
+                # print("model_output:", model_output.size())
+
                 mel_output.append(model_output)
 
             mel_output = torch.cat(mel_output, 1)
+
+            # print("mel_output:", mel_output.size())
+
             gate_predicted = self.linear_projection(mel_output)
             gate_predicted = gate_predicted.squeeze(2)
 
@@ -472,12 +487,13 @@ class WESS_Decoder(nn.Module):
             # Test One Text Once
             # Init
             mel_output = list()
-            mel_first_input = torch.zeros(1, 5, 80).to(device)
+            mel_first_input = torch.zeros(
+                1, self.decode_per_step, 80).to(device)
             mel_first_input_word = self.PreNet_word(mel_first_input)
             mel_first_input_alpha = self.PreNet_alpha(mel_first_input)
 
-            pos_input = torch.stack(
-                [torch.Tensor([i for i in range(5)]).to(device) for _ in range(1)]).long()
+            pos_input = torch.stack([torch.Tensor(
+                [i for i in range(self.decode_per_step)]).to(device) for _ in range(1)]).long()
 
             # print(pos_input.size())
 
@@ -507,14 +523,14 @@ class WESS_Decoder(nn.Module):
 
             mel_output.append(decoder_first_output)
 
-            for cnt_pos in range(self.max_decode_length // 5):
+            for cnt_pos in range(self.max_decode_length // self.decode_per_step):
 
-                if (cnt_pos + 1) == self.max_decode_length // 5:
+                if (cnt_pos + 1) == self.max_decode_length // self.decode_per_step:
                     print("Warning! Reached max decoder steps.")
 
                 # Position Embedding
                 pos_input = torch.stack([torch.Tensor([i for i in range(
-                    cnt_pos*5, cnt_pos*5+5)]).to(device) for _ in range(1)]).long()
+                    cnt_pos*self.decode_per_step, cnt_pos*self.decode_per_step+self.decode_per_step)]).to(device) for _ in range(1)]).long()
                 pos_embedding = self.position_embedding(pos_input)
 
                 # Default Teacher Forced
@@ -523,6 +539,8 @@ class WESS_Decoder(nn.Module):
                 model_input_word = mel_output[len(mel_output)-1]
                 model_input_word = self.PreNet_word(model_input_word)
                 model_input_word = model_input_word + pos_embedding
+
+                # print("model_input_word:", model_input_word.size())
 
                 for decoder_layer in self.decoder_layer_stack_word:
                     model_input_word = decoder_layer(
@@ -555,6 +573,8 @@ class WESS_Decoder(nn.Module):
                     break
 
             mel_output = torch.cat(mel_output, 1)
+
+            # print(mel_output.size())
 
             return mel_output
 
