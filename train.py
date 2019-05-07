@@ -43,7 +43,7 @@ def main(args):
         checkpoint = torch.load(os.path.join(
             hp.checkpoint_path, 'checkpoint_%d.pth.tar' % args.restore_step))
         model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        # optimizer.load_state_dict(checkpoint['optimizer'])
         print("---Model Restored at Step %d---\n" % args.restore_step)
 
     except:
@@ -102,6 +102,19 @@ def main(args):
                 mel_output, gate_predicted, mel_target, gate_target)
             # print(gate_loss)
             loss_list.append(total_loss.item())
+
+            t_l = total_loss.item()
+            m_l = mel_loss.item()
+            g_l = gate_loss.item()
+
+            with open("total_loss.txt", "a") as f_total_loss:
+                f_total_loss.write(str(t_l)+"\n")
+
+            with open("mel_loss.txt", "a") as f_mel_loss:
+                f_mel_loss.write(str(m_l)+"\n")
+
+            with open("gate_loss.txt", "a") as f_gate_loss:
+                f_gate_loss.write(str(g_l)+"\n")
 
             # Backward
             total_loss.backward()
@@ -166,6 +179,6 @@ def adjust_learning_rate(optimizer, step):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--restore_step', type=int,
-                        help='checkpoint', default=300)
+                        help='checkpoint', default=0)
     args = parser.parse_args()
     main(args)
