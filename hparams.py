@@ -16,15 +16,15 @@ use_lws = False
 text_cleaners = ['english_cleaners']
 
 # Train
-batch_size = 16
+batch_size = 18
 epochs = 10000
 dataset_path = "dataset"
-learning_rate = 1e-3
+learning_rate = 0.0001
 weight_decay = 1e-6
 checkpoint_path = "./model_new"
-grad_clip_thresh = 1.0
+grad_clip_thresh = 0.6
 decay_step = [100000, 200000, 300000]
-save_step = 50
+save_step = 100
 log_step = 5
 clear_Time = 20
 
